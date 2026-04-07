@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAV SYSTEM - Standalone</title>
+<script>
+// Données initiales si vide
+const defaultData = {
+  "demandes": [
+    {"client":"Dr benmouloud","dt":"24/03/2026 11:52","equip":"ARK1","id":"SAV-004","loc":"Blida","notes":"","resume":"Hmimez","src":"Groupe 1","statut":"Nouveau","tech":"","type":"Panne","urgence":"Moyen"},
+    {"client":"Dr test","dt":"24/03/2026 07:36","equip":"Autre","id":"SAV-003","loc":"Alger","notes":"","resume":"Non","src":"Groupe 1","statut":"Nouveau","tech":"","type":"Panne","urgence":"Urgent"},
+    {"client":"test","dt":"24/03/2026 05:34","equip":"Tonometre","id":"SAV-002","loc":"ALGER","notes":"","resume":"test","src":"Groupe 1","statut":"En traitement","tech":"","type":"Calibrage","urgence":"Moyen"},
+    {"client":"SACI","dt":"23/03/2026 10:58","equip":"Pentacam","id":"SAV-001","loc":"ALGER","notes":"oda.saci@optiquedistribution.net","resume":"TEST","src":"Groupe 2","statut":"Resolu","tech":"","type":"Intervention","urgence":"Moyen"}
+  ],
+  "stock": [
+    {"designation":"test","equip":"topo","fournisseur":"oculus","id":"PIC-001","notes":"","prix":0,"qte":0,"ref":"","seuil":1}
+  ],
+  "appro": [
+    {"dateCommande":"","dateLivraisonPrevue":"","designation":"test","dt":"28/03/2026","fournisseur":"oculus","id":"APP-001","liePiece":"PIC-001","lieSav":"","notes":"","prixUnit":0,"qte":5,"ref":"","statut":"Commande"}
+  ],
+  "installations": [
+    {"adresse":"333 TEST ALGER","client":"dr test","dateDebut":"10/04/2026","dateFin":"10/04/2026","equipements":["TESTTT"],"id":"INS-001","lieSav":"","materiel":[],"notes":"","statut":"Planifie","techniciens":["ACHREF"],"type":"Installation + Formation","wilaya":"ALGER"}
+  ],
+  "evenements": [],
+  "techniciens": ["Karim","Mohamed","Ahmed","Youcef"],
+  "atelier": []
+};
+
+// Charger depuis localStorage ou defaults
+function loadData() {
+  const saved = localStorage.getItem('sav_data');
+  if (saved) return JSON.parse(saved);
+  localStorage.setItem('sav_data', JSON.stringify(defaultData));
+  return defaultData;
+}
+
+function saveData() {
+  localStorage.setItem('sav_data', JSON.stringify({demandes,stock,appro,installations,evenements,techniciens,atelier}));
+  updateBadges();
+}
+
+function exportData() {
+  const data = {demandes,stock,appro,installations,evenements,techniciens,atelier};
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `sav_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.demandes) demandes = data.demandes;
+      if (data.stock) stock = data.stock;
+      if (data.appro) appro = data.appro;
+      if (data.installations) installations = data.installations;
+      if (data.evenements) evenements = data.evenements;
+      if (data.techniciens) techniciens = data.techniciens;
+      if (data.atelier) atelier = data.atelier;
+      saveData();
+      location.reload();
+    } catch(err) {
+      alert('Erreur import: fichier invalide');
+    }
+  };
+  reader.readAsText(file);
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07090f;--bg2:#0e1118;--bg3:#141820;--bg4:#1c2230;
+  --bdr:#1f2a3a;--bdr2:#283548;
+  --blue:#4f8ef7;--cyan:#22d3ee;--green:#34d399;
+  --yellow:#fbbf24;--red:#f87171;--orange:#fb923c;
+  --purple:#a78bfa;--pink:#f472b6;--teal:#2dd4bf;
+  --text:#dde4f0;--dim:#4a5a72;
+  --mono:'DM Mono',monospace;--sans:'Syne',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
+.sidebar{position:fixed;top:0;left:0;width:214px;height:100vh;background:var(--bg2);border-right:1px solid var(--bdr);display:flex;flex-direction:column;z-index:100;overflow-y:auto}
+.logo{padding:20px 16px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.logo h1{font-size:14px;font-weight:800;color:#fff;letter-spacing:.04em}
+.logo p{font-size:9px;color:var(--dim);font-family:var(--mono);margin-top:2px}
+.nav{padding:8px 0;flex:1}
+.ng{padding:12px 16px 3px;font-size:9px;font-family:var(--mono);letter-spacing:.15em;color:var(--dim);text-transform:uppercase}
+.ni{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:12.5px;font-weight:600;color:var(--dim);cursor:pointer;border-left:2px solid transparent;transition:all .15s;white-space:nowrap}
+.ni:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.ni.on{color:var(--blue);background:rgba(79,142,247,.08);border-left-color:var(--blue)}
+.ni.ins.on{color:var(--teal);background:rgba(45,212,191,.07);border-left-color:var(--teal)}
+.ni.evt.on{color:var(--purple);background:rgba(167,139,250,.07);border-left-color:var(--purple)}
+.ni.stk.on{color:var(--orange);background:rgba(251,146,60,.07);border-left-color:var(--orange)}
+.ni.app.on{color:var(--yellow);background:rgba(251,191,36,.07);border-left-color:var(--yellow)}
+.ni .ic{font-size:13px;width:15px;text-align:center}
+.nb{margin-left:auto;border-radius:8px;padding:1px 6px;font-size:9px;font-family:var(--mono);color:#fff;background:var(--red)}
+.nb.g{background:var(--green);color:#000}
+.nb.y{background:var(--yellow);color:#000}
+.nb.p{background:var(--purple)}
+.nb.o{background:var(--orange)}
+.sb{padding:12px 16px;border-top:1px solid var(--bdr)}
+.clk{font-family:var(--mono);font-size:13px;color:var(--cyan);text-align:center}
+.live{display:flex;align-items:center;justify-content:center;gap:5px;font-size:10px;color:var(--green);margin-top:3px}
+.ld{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pu 1.5s infinite}
+@keyframes pu{0%,100%{opacity:1}50%{opacity:.2}}
+.main{margin-left:214px;min-height:100vh}
+.topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;padding:0 22px;position:sticky;top:0;z-index:50}
+.tbt{font-size:14px;font-weight:700;color:#fff}
+.content{padding:20px}
+.page{display:none}.page.on{display:block}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-bottom:20px}
+.kpi{background:var(--bg3);border:1px solid var(--bdr);border-radius:10px;padding:15px;position:relative;overflow:hidden;transition:transform .2s;cursor:pointer}
+.kpi:hover{transform:translateY(-2px)}
+.kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px}
+.kpi.bl::after{background:var(--blue)}.kpi.re::after{background:var(--red)}.kpi.ye::after{background:var(--yellow)}.kpi.or::after{background:var(--orange)}.kpi.gr::after{background:var(--green)}.kpi.te::after{background:var(--teal)}.kpi.pu::after{background:var(--purple)}.kpi.pi::after{background:var(--pink)}
+.kl{font-size:9px;font-family:var(--mono);letter-spacing:.1em;color:var(--dim);text-transform:uppercase;margin-bottom:7px}
+.kv{font-size:28px;font-weight:800;font-family:var(--mono)}
+.kpi.bl .kv{color:var(--blue)}.kpi.re .kv{color:var(--red)}.kpi.ye .kv{color:var(--yellow)}.kpi.or .kv{color:var(--orange)}.kpi.gr .kv{color:var(--green)}.kpi.te .kv{color:var(--teal)}.kpi.pu .kv{color:var(--purple)}.kpi.pi .kv{color:var(--pink)}
+.ki{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:22px;opacity:.1}
+.ks{font-size:10px;color:var(--dim);margin-top:3px}
+.panel{background:var(--bg3);border:1px solid var(--bdr);border-radius:10px;margin-bottom:16px;overflow:hidden}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;background:var(--bg4);border-bottom:1px solid var(--bdr)}
+.pt{font-size:12px;font-weight:700;color:#fff;display:flex;align-items:center;gap:7px}
+.pb{padding:15px}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead tr{background:var(--bg4)}
+th{padding:8px 12px;text-align:left;font-size:9px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+tbody tr{border-top:1px solid var(--bdr);transition:background .1s}
+tbody tr:hover{background:rgba(79,142,247,.03)}
+td{padding:9px 12px;vertical-align:middle}
+.b{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:10px;font-family:var(--mono);font-weight:500;white-space:nowrap}
+.b-bl{background:rgba(79,142,247,.12);color:var(--blue);border:1px solid rgba(79,142,247,.25)}
+.b-cy{background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.2)}
+.b-gr{background:rgba(52,211,153,.1);color:var(--green);border:1px solid rgba(52,211,153,.2)}
+.b-ye{background:rgba(251,191,36,.1);color:var(--yellow);border:1px solid rgba(251,191,36,.2)}
+.b-re{background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.25)}
+.b-or{background:rgba(251,146,60,.1);color:var(--orange);border:1px solid rgba(251,146,60,.2)}
+.b-pu{background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.2)}
+.b-te{background:rgba(45,212,191,.1);color:var(--teal);border:1px solid rgba(45,212,191,.2)}
+.b-pi{background:rgba(244,114,182,.1);color:var(--pink);border:1px solid rgba(244,114,182,.2)}
+.b-dim{background:rgba(74,90,114,.12);color:var(--dim);border:1px solid rgba(74,90,114,.2)}
+.ss{background:var(--bg4);border:1px solid var(--bdr);border-radius:6px;padding:4px 8px;font-size:11px;font-family:var(--sans);color:var(--text);cursor:pointer;outline:none;min-width:125px;transition:border-color .2s}
+.ss:focus{border-color:var(--blue)}
+.tb{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.inp{background:var(--bg4);border:1px solid var(--bdr);border-radius:7px;padding:7px 12px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;transition:border-color .2s}
+.inp:focus{border-color:var(--blue)}.inp::placeholder{color:var(--dim)}
+.srch{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a5a72' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:10px center;padding-left:28px}
+.btn{padding:7px 13px;border-radius:7px;border:none;font-family:var(--sans);font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:5px}
+.btn-p{background:var(--blue);color:#fff}.btn-p:hover{background:#3d7ef5}
+.btn-t{background:var(--teal);color:#000}.btn-t:hover{background:#26bfad}
+.btn-pu{background:var(--purple);color:#fff}.btn-pu:hover{background:#9370eb}
+.btn-or{background:var(--orange);color:#fff}.btn-or:hover{background:#ea6c10}
+.btn-ye{background:var(--yellow);color:#000}.btn-ye:hover{background:#e6ab18}
+.btn-re{background:var(--red);color:#fff}.btn-re:hover{background:#e53e3e}
+.btn-o{background:transparent;border:1px solid var(--bdr);color:var(--text)}.btn-o:hover{border-color:var(--blue);color:var(--blue)}
+.btn-sm{padding:4px 9px;font-size:11px}
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(5px)}
+.ov.on{display:flex}
+.modal{background:var(--bg3);border:1px solid var(--bdr);border-radius:14px;padding:22px;width:600px;max-width:96vw;max-height:90vh;overflow-y:auto;animation:si .2s ease}
+.modal.lg{width:750px}
+@keyframes si{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.mh h2{font-size:14px;font-weight:700;color:#fff}
+.mx{cursor:pointer;color:var(--dim);font-size:18px}.mx:hover{color:#fff}
+.fg{margin-bottom:11px}
+.fg label{display:block;font-size:9px;font-family:var(--mono);letter-spacing:.1em;color:var(--dim);text-transform:uppercase;margin-bottom:4px}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--bg4);border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;transition:border-color .2s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--blue)}
+.fg textarea{resize:vertical;min-height:55px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.fgrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px}
+.mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.toast{position:fixed;bottom:18px;right:18px;background:var(--bg3);border:1px solid var(--green);border-radius:8px;padding:10px 15px;font-size:11px;color:var(--green);font-family:var(--mono);z-index:999;opacity:0;transform:translateY(6px);transition:all .3s;pointer-events:none}
+.toast.on{opacity:1;transform:translateY(0)}
+.alert-bar{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--red);display:flex;align-items:center;gap:8px}
+.prog-wrap{margin:8px 0}
+.prog-lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);font-family:var(--mono);margin-bottom:3px}
+.prog-bar{height:4px;background:var(--bg2);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;border-radius:2px;transition:width .4s}
+.ins-card,.evt-card,.piece-card{background:var(--bg4);border:1px solid var(--bdr);border-radius:10px;padding:16px;margin-bottom:12px;transition:border-color .2s}
+.ins-card:hover{border-color:var(--teal)}
+.evt-card:hover{border-color:var(--purple)}
+.piece-card:hover{border-color:var(--orange)}
+.mat-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bdr);font-size:11px}
+.mat-item:last-child{border:none}
+.mat-chk{width:14px;height:14px;border-radius:3px;border:1px solid var(--bdr2);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.mat-chk.done{background:var(--green);border-color:var(--green)}
+.mat-chk.done::after{content:'✓';color:#000;font-size:9px;font-weight:700}
+.mat-nm{flex:1}.mat-nm.done{text-decoration:line-through;color:var(--dim)}
+.frow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bdr);font-size:11px}
+.frow:last-child{border:none}
+.fk{color:var(--dim);min-width:130px}
+.fv{color:var(--text);font-weight:600;text-align:right;word-break:break-word;max-width:280px}
+.fsec{background:var(--bg4);border-radius:8px;padding:13px;margin-bottom:10px}
+.fst{font-size:9px;font-family:var(--mono);letter-spacing:.12em;color:var(--cyan);text-transform:uppercase;margin-bottom:9px}
+.stk-ok{color:var(--green)}.stk-low{color:var(--yellow)}.stk-zero{color:var(--red)}
+.app-demande{color:var(--yellow)}.app-commande{color:var(--blue)}.app-livre{color:var(--green)}.app-annule{color:var(--red)}
+.ditem{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:12px}
+.ditem:last-child{border:none}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px}
+.wday{text-align:center;font-size:9px;font-family:var(--mono);color:var(--dim);padding:4px 0;text-transform:uppercase;letter-spacing:.08em}
+.wcell{min-height:55px;background:var(--bg4);border:1px solid var(--bdr);border-radius:6px;padding:4px;font-size:9px}
+.wcell.today{border-color:var(--cyan);background:rgba(34,211,238,.05)}
+.wcell.has-ev{border-color:var(--teal)}
+.wdn{font-family:var(--mono);font-size:10px;color:var(--dim);margin-bottom:2px}
+.wev{border-radius:3px;padding:2px 4px;margin-bottom:1px;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wev.ins{background:rgba(45,212,191,.15);color:var(--teal)}
+.wev.evt{background:rgba(167,139,250,.15);color:var(--purple)}
+.dg{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.dg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.sec-title{font-size:9px;font-family:var(--mono);letter-spacing:.12em;color:var(--cyan);text-transform:uppercase;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--bdr)}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(3,1fr)}.dg,.dg3{grid-template-columns:1fr}.sidebar{display:none}.main{margin-left:0}}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+.file-input{display:none}
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="logo"><h1>⚕ SAV SYSTEM</h1><p>Standalone Mode</p></div>
+  <div class="nav">
+    <div class="ng">Principal</div>
+    <div class="ni on" onclick="go('dash')"><span class="ic">📊</span>Dashboard</div>
+    <div class="ni" onclick="go('sav')"><span class="ic">🎫</span>Demandes SAV<span class="nb" id="nb-new">0</span></div>
+    <div class="ng">Pieces & Appro</div>
+    <div class="ni stk" onclick="go('stock')"><span class="ic">🗄️</span>Stock pieces<span class="nb o" id="nb-stk">0</span></div>
+    <div class="ni app" onclick="go('appro')"><span class="ic">📦</span>Demandes appro<span class="nb y" id="nb-app">0</span></div>
+    <div class="ng">Operations</div>
+    <div class="ni ins" onclick="go('agenda')"><span class="ic">📅</span>Agenda</div>
+    <div class="ni ins" onclick="go('installations')"><span class="ic">🔧</span>Installations<span class="nb g" id="nb-ins">0</span></div>
+    <div class="ni" onclick="go('atelier')" style="color:var(--dim)"><span class="ic">🔨</span>Atelier<span class="nb o" id="nb-atel">0</span></div>
+    <div class="ng">Evenements</div>
+    <div class="ni evt" onclick="go('evenements')"><span class="ic">🎪</span>Congres / Events<span class="nb p" id="nb-evt">0</span></div>
+    <div class="ng">Statuts SAV</div>
+    <div class="ni" onclick="go('urgent')"><span class="ic">🔴</span>Urgentes<span class="nb" id="nb-urg">0</span></div>
+    <div class="ni" onclick="go('encours')"><span class="ic">🔄</span>En traitement</div>
+    <div class="ni" onclick="go('resolu')"><span class="ic">✅</span>Resolus</div>
+    <div class="ng">Data</div>
+    <div class="ni" onclick="exportData()"><span class="ic">💾</span>Exporter JSON</div>
+    <div class="ni" onclick="document.getElementById('import-file').click()"><span class="ic">📁</span>Importer JSON</div>
+    <input type="file" id="import-file" class="file-input" accept=".json" onchange="importData(this.files[0])">
+  </div>
+  <div class="sb">
+    <div class="clk" id="clk">--:--:--</div>
+    <div class="live"><div class="ld"></div>localStorage</div>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <div class="tbt" id="ttl">📊 Dashboard</div>
+    <div style="display:flex;gap:6px">
+      <a href="mobile.html" class="btn btn-p btn-sm" style="text-decoration:none">📱 Mobile</a>
+      <button class="btn btn-p btn-sm" onclick="openAdd('sav')">＋ SAV</button>
+      <button class="btn btn-or btn-sm" onclick="openAdd('piece')">＋ Piece</button>
+      <button class="btn btn-ye btn-sm" onclick="openAdd('appro')">＋ Appro</button>
+      <button class="btn btn-t btn-sm" onclick="openAdd('ins')">＋ Installation</button>
+      <button class="btn btn-pu btn-sm" onclick="openAdd('evt')">＋ Evenement</button>
+      <button class="btn btn-o btn-sm" onclick="exportCSV()">⬇ CSV</button>
+    </div>
+  </div>
+  <div class="content">
+
+    <div class="page on" id="page-dash">
+      <div class="kpis" id="kpis"></div>
+      <div class="dg3">
+        <div class="panel"><div class="ph"><div class="pt">🔴 SAV Urgentes</div></div><div class="pb" id="d-urg"></div></div>
+        <div class="panel"><div class="ph"><div class="pt">⚠️ Alertes stock</div></div><div class="pb" id="d-stk"></div></div>
+        <div class="panel"><div class="ph"><div class="pt">📦 Appro en attente</div></div><div class="pb" id="d-app"></div></div>
+      </div>
+      <div class="dg3">
+        <div class="panel"><div class="ph"><div class="pt">🔧 Prochaines installations</div></div><div class="pb" id="d-ins"></div></div>
+        <div class="panel"><div class="ph"><div class="pt">🎪 Prochains evenements</div></div><div class="pb" id="d-evt"></div></div>
+        <div class="panel"><div class="ph"><div class="pt">📊 SAV par equipement</div></div><div class="pb" id="d-equip"></div></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-sav">
+      <div class="tb">
+        <input class="inp srch" style="flex:1;min-width:160px" placeholder="Rechercher..." id="s-q">
+        <select class="inp" id="s-urg"><option value="">Urgence</option><option>Urgent</option><option>Moyen</option></select>
+        <select class="inp" id="s-sta"><option value="">Statut</option><option>Nouveau</option><option>En traitement</option><option>Resolu</option><option>Annule</option></select>
+        <select class="inp" id="s-src"><option value="">Source</option><option>Groupe 1</option><option>Groupe 2</option><option>Telephone</option></select>
+      </div>
+      <div class="panel"><div class="tw">
+        <table><thead><tr><th>ID</th><th>Date</th><th>Client</th><th>Equipement</th><th>Type</th><th>Urgence</th><th>Src</th><th>Statut</th><th></th></tr></thead>
+        <tbody id="t-sav"></tbody></table>
+      </div></div>
+    </div>
+
+    <div class="page" id="page-stock">
+      <div class="tb">
+        <input class="inp srch" style="flex:1;min-width:160px" placeholder="Rechercher piece..." id="stk-q">
+        <select class="inp" id="stk-eq"><option value="">Equipement</option></select>
+      </div>
+      <div id="stk-alerts"></div>
+      <div class="panel"><div class="tw">
+        <table><thead><tr><th>Reference</th><th>Designation</th><th>Equipement</th><th>Stock</th><th>Seuil</th><th>Prix unit.</th><th>Fournisseur</th><th>Etat</th><th>Actions</th></tr></thead>
+        <tbody id="t-stk"></tbody></table>
+      </div></div>
+    </div>
+
+    <div class="page" id="page-appro">
+      <div class="tb">
+        <input class="inp srch" style="flex:1;min-width:160px" placeholder="Rechercher piece, fournisseur..." id="app-q">
+        <select class="inp" id="app-sta"><option value="">Statut</option><option>Demande</option><option>Commande</option><option>Livre</option><option>Annule</option></select>
+      </div>
+      <div class="panel"><div class="tw">
+        <table><thead><tr><th>ID</th><th>Date</th><th>Designation</th><th>Ref</th><th>SAV lie</th><th>Qte</th><th>Fournisseur</th><th>Prix total</th><th>Livraison</th><th>Statut</th></tr></thead>
+        <tbody id="t-app"></tbody></table>
+      </div></div>
+    </div>
+
+    <div class="page" id="page-agenda">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <button class="btn btn-o btn-sm" onclick="calNav(-1)">◀</button>
+        <span style="font-size:14px;font-weight:700;color:#fff;min-width:160px;text-align:center" id="cal-label"></span>
+        <button class="btn btn-o btn-sm" onclick="calNav(1)">▶</button>
+      </div>
+      <div class="week-grid" id="cal-days"></div>
+      <div class="week-grid" id="cal-grid"></div>
+    </div>
+
+    <div class="page" id="page-installations">
+      <div class="tb">
+        <input class="inp srch" style="flex:1;min-width:160px" placeholder="Rechercher client, wilaya..." id="ins-q">
+        <select class="inp" id="ins-sta"><option value="">Statut</option><option>Planifie</option><option>En cours</option><option>Termine</option><option>Reporte</option></select>
+      </div>
+      <div id="ins-list"></div>
+    </div>
+
+    <div class="page" id="page-evenements">
+      <div class="tb">
+        <input class="inp srch" style="flex:1;min-width:160px" placeholder="Rechercher evenement..." id="evt-q">
+        <select class="inp" id="evt-typ"><option value="">Type</option><option>Congres</option><option>Journee scientifique</option><option>Formation</option><option>Exposition</option></select>
+      </div>
+      <div id="evt-list"></div>
+    </div>
+
+    <div class="page" id="page-atelier">
+      <div class="tb">
+        <input class="inp srch" style="flex:1;min-width:160px" placeholder="Rechercher..." id="atel-q">
+        <select class="inp" id="atel-sta"><option value="">Statut</option><option>En attente piece</option><option>En reparation</option><option>Pret a rendre</option><option>Rendu</option></select>
+      </div>
+      <div id="atel-alerts"></div>
+      <div class="panel"><div class="tw">
+        <table><thead><tr><th>ID</th><th>Entree</th><th>Client</th><th>Equipement</th><th>Raison</th><th>Technicien</th><th>Statut</th></tr></thead>
+        <tbody id="t-atel"></tbody></table>
+      </div></div>
+    </div>
+
+    <div class="page" id="page-urgent">
+      <div class="panel"><div class="ph"><div class="pt">🔴 Demandes urgentes</div></div><div class="tw"><table><thead><tr><th>ID</th><th>Date</th><th>Client</th><th>Equip</th><th>Statut</th></tr></thead><tbody id="t-urg2"></tbody></table></div></div>
+    </div>
+    <div class="page" id="page-encours">
+      <div class="panel"><div class="ph"><div class="pt">🔄 En traitement</div></div><div class="tw"><table><thead><tr><th>ID</th><th>Date</th><th>Client</th><th>Equip</th><th>Technicien</th></tr></thead><tbody id="t-enc"></tbody></table></div></div>
+    </div>
+    <div class="page" id="page-resolu">
+      <div class="panel"><div class="ph"><div class="pt">✅ Resolus</div></div><div class="tw"><table><thead><tr><th>ID</th><th>Date</th><th>Client</th><th>Equip</th><th>Technicien</th></tr></thead><tbody id="t-res"></tbody></table></div></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="ov" id="ov-sav" onclick="clov(event,'ov-sav')">
+  <div class="modal">
+    <div class="mh"><h2>➕ Nouvelle Demande SAV</h2><span class="mx" onclick="cm('ov-sav')">✕</span></div>
+    <div class="fgrid">
+      <div class="fg"><label>Client</label><input id="a-cli" placeholder="Nom"></div>
+      <div class="fg"><label>Source</label><select id="a-src"><option>Groupe 1</option><option>Groupe 2</option><option>Telephone</option></select></div>
+      <div class="fg"><label>Equipement</label><input id="a-eq" placeholder="Pentacam, OCT..."></div>
+      <div class="fg"><label>Type</label><select id="a-typ"><option>Calibrage</option><option>Intervention</option><option>Panne</option><option>Facture</option><option>Livraison</option><option>Autre</option></select></div>
+      <div class="fg"><label>Localisation</label><input id="a-loc" placeholder="Wilaya"></div>
+      <div class="fg"><label>Urgence</label><select id="a-urg"><option>Moyen</option><option>Urgent</option></select></div>
+      <div class="fg"><label>Technicien</label><select id="a-tec"><option value="">Non assigne</option></select></div>
+      <div class="fg"><label>Notes</label><input id="a-not" placeholder="Email, notes..."></div>
+    </div>
+    <div class="fg"><label>Message recu</label><textarea id="a-res" placeholder="Message recu..."></textarea></div>
+    <div class="mfoot"><button class="btn btn-o" onclick="cm('ov-sav')">Annuler</button><button class="btn btn-p" onclick="saveSav()">✅ Enregistrer</button></div>
+  </div>
+</div>
+
+<div class="ov" id="ov-piece" onclick="clov(event,'ov-piece')">
+  <div class="modal">
+    <div class="mh"><h2>🗄️ Nouvelle Piece</h2><span class="mx" onclick="cm('ov-piece')">✕</span></div>
+    <div class="fgrid">
+      <div class="fg"><label>Reference</label><input id="p-ref" placeholder="REF-001"></div>
+      <div class="fg"><label>Designation</label><input id="p-des" placeholder="Nom de la piece"></div>
+      <div class="fg"><label>Equipement</label><input id="p-eq" placeholder="Pentacam, OCT..."></div>
+      <div class="fg"><label>Fournisseur</label><input id="p-fou" placeholder="Fournisseur"></div>
+      <div class="fg"><label>Quantite</label><input type="number" id="p-qte" value="0"></div>
+      <div class="fg"><label>Seuil alerte</label><input type="number" id="p-seu" value="1"></div>
+      <div class="fg"><label>Prix unitaire</label><input type="number" id="p-pri" value="0"></div>
+      <div class="fg"><label>Notes</label><input id="p-not" placeholder="Notes..."></div>
+    </div>
+    <div class="mfoot"><button class="btn btn-o" onclick="cm('ov-piece')">Annuler</button><button class="btn btn-or" onclick="savePiece()">✅ Enregistrer</button></div>
+  </div>
+</div>
+
+<div class="ov" id="ov-appro" onclick="clov(event,'ov-appro')">
+  <div class="modal">
+    <div class="mh"><h2>📦 Demande Approvisionnement</h2><span class="mx" onclick="cm('ov-appro')">✕</span></div>
+    <div class="fgrid">
+      <div class="fg"><label>Piece</label><select id="ap-pie"><option value="">Choisir piece...</option></select></div>
+      <div class="fg"><label>SAV lie</label><select id="ap-sav"><option value="">Aucun</option></select></div>
+      <div class="fg"><label>Quantite</label><input type="number" id="ap-qte" value="1"></div>
+      <div class="fg"><label>Fournisseur</label><input id="ap-fou"></div>
+      <div class="fg"><label>Statut</label><select id="ap-sta"><option>Demande</option><option>Commande</option><option>Livre</option></select></div>
+    </div>
+    <div class="mfoot"><button class="btn btn-o" onclick="cm('ov-appro')">Annuler</button><button class="btn btn-ye" onclick="saveAppro()">✅ Enregistrer</button></div>
+  </div>
+</div>
+
+<div class="ov" id="ov-ins" onclick="clov(event,'ov-ins')">
+  <div class="modal lg">
+    <div class="mh"><h2>🔧 Nouvelle Installation</h2><span class="mx" onclick="cm('ov-ins')">✕</span></div>
+    <div class="fgrid">
+      <div class="fg"><label>Client</label><input id="i-cli"></div>
+      <div class="fg"><label>Wilaya</label><input id="i-wil"></div>
+      <div class="fg"><label>Date debut</label><input type="date" id="i-dt1"></div>
+      <div class="fg"><label>Date fin</label><input type="date" id="i-dt2"></div>
+      <div class="fg"><label>Type</label><select id="i-typ"><option>Installation</option><option>Installation + Formation</option></select></div>
+      <div class="fg"><label>Equipements</label><input id="i-eq" placeholder="Pentacam, OCT..."></div>
+    </div>
+    <div class="mfoot"><button class="btn btn-o" onclick="cm('ov-ins')">Annuler</button><button class="btn btn-t" onclick="saveIns()">✅ Planifier</button></div>
+  </div>
+</div>
+
+<div class="ov" id="ov-evt" onclick="clov(event,'ov-evt')">
+  <div class="modal lg">
+    <div class="mh"><h2>🎪 Nouvel Evenement</h2><span class="mx" onclick="cm('ov-evt')">✕</span></div>
+    <div class="fgrid">
+      <div class="fg"><label>Nom</label><input id="e-nom"></div>
+      <div class="fg"><label>Type</label><select id="e-typ"><option>Congres</option><option>Journee scientifique</option><option>Formation</option><option>Exposition</option></select></div>
+      <div class="fg"><label>Date debut</label><input type="date" id="e-dt1"></div>
+      <div class="fg"><label>Date fin</label><input type="date" id="e-dt2"></div>
+    </div>
+    <div class="mfoot"><button class="btn btn-o" onclick="cm('ov-evt')">Annuler</button><button class="btn btn-pu" onclick="saveEvt()">✅ Creer</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">✅ OK</div>
+
+<script>
+const $=id=>document.getElementById(id);
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function now(){return new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).replace(',','')}
+function todayFR(){const d=new Date();return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`}
+function fmtDA(n){return Number(n||0).toLocaleString('fr-DZ')+' DA'}
+function toast(m,c='var(--green)'){const t=$('toast');t.textContent=m;t.style.borderColor=c;t.style.color=c;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2800)}
+function cm(id){$(id).classList.remove('on')}
+function clov(e,id){if(e.target===$(id))cm(id)}
+function ubadge(u){return u==='Urgent'?'<span class="b b-re">🔴 Urgent</span>':'<span class="b b-ye">🟡 Moyen</span>'}
+function sbadge(s){const m={'Nouveau':'b-bl','En traitement':'b-or','Resolu':'b-gr','Annule':'b-dim','Planifie':'b-te'};return`<span class="b ${m[s]||'b-dim'}">${esc(s)}</span>`}
+function srcbadge(s){if(s==='Groupe 1')return'<span class="b b-bl">G1</span>';if(s==='Groupe 2')return'<span class="b b-pu">G2</span>';return'<span class="b b-gr">Tel</span>'}
+
+setInterval(()=>{$('clk').textContent=new Date().toLocaleTimeString('fr-FR')},1000);
+
+let {demandes,stock,appro,installations,evenements,techniciens,atelier} = loadData();
+let savCtr=1,insCtr=1,evtCtr=1,stkCtr=1,appCtr=1,atelCtr=1;
+
+function updateBadges(){
+  const nw=demandes.filter(d=>d.statut==='Nouveau').length;
+  const ug=demandes.filter(d=>d.urgence==='Urgent'&&d.statut!=='Resolu').length;
+  const ip=installations.filter(i=>i.statut==='Planifie'||i.statut==='En cours').length;
+  const ep=evenements.filter(e=>e.statut!=='Termine').length;
+  const sa=stock.filter(s=>s.qte<=s.seuil).length;
+  const ap=appro.filter(a=>a.statut==='Demande'||a.statut==='Commande').length;
+  const at=(atelier||[]).filter(a=>a.statut!=='Rendu').length;
+  $('nb-new').textContent=nw;$('nb-new').style.display=nw?'':'none';
+  $('nb-urg').textContent=ug;$('nb-urg').style.display=ug?'':'none';
+  $('nb-ins').textContent=ip;$('nb-ins').style.display=ip?'':'none';
+  $('nb-evt').textContent=ep;$('nb-evt').style.display=ep?'':'none';
+  $('nb-stk').textContent=sa;$('nb-stk').style.display=sa?'':'none';
+  $('nb-app').textContent=ap;$('nb-app').style.display=ap?'':'none';
+  if($('nb-atel')){$('nb-atel').textContent=at;$('nb-atel').style.display=at?'':'none';}
+}
+
+const ptitles={dash:'📊 Dashboard',sav:'🎫 Demandes SAV',stock:'🗄️ Stock Pieces',appro:'📦 Approvisionnement',agenda:'📅 Agenda',installations:'🔧 Installations',atelier:'🔨 Atelier',evenements:'🎪 Congres & Evenements',urgent:'🔴 Urgentes',encours:'🔄 En traitement',resolu:'✅ Resolus'};
+function go(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(x=>x.classList.remove('on'));
+  $('page-'+p).classList.add('on');
+  document.querySelectorAll('.ni').forEach(x=>{if(x.onclick&&x.onclick.toString().includes(`'${p}'`))x.classList.add('on')});
+  $('ttl').textContent=ptitles[p]||p;
+  const fns={dash:renderDash,sav:renderSav,stock:renderStock,appro:renderAppro,agenda:renderAgenda,installations:renderIns,atelier:renderAtelier,evenements:renderEvt,urgent:renderUrgent,encours:renderEnCours,resolu:renderResolu};
+  if(fns[p])fns[p]();
+}
+
+function renderDash(){
+  const tot=demandes.length,urg=demandes.filter(d=>d.urgence==='Urgent'&&d.statut!=='Resolu').length;
+  const nw=demandes.filter(d=>d.statut==='Nouveau').length;
+  const sa=stock.filter(s=>s.qte<=s.seuil).length;
+  const ap=appro.filter(a=>a.statut==='Demande'||a.statut==='Commande').length;
+  const ip=installations.filter(i=>i.statut!=='Termine').length;
+  $('kpis').innerHTML=`
+    <div class="kpi bl"><div class="kl">SAV Total</div><div class="kv">${tot}</div><div class="ks">${nw} nouvelles</div><div class="ki">🎫</div></div>
+    <div class="kpi re"><div class="kl">Urgentes</div><div class="kv">${urg}</div><div class="ks">En cours</div><div class="ki">🚨</div></div>
+    <div class="kpi or"><div class="kl">Stock alerte</div><div class="kv">${sa}</div><div class="ks">Pieces critiques</div><div class="ki">⚠️</div></div>
+    <div class="kpi ye"><div class="kl">Appro active</div><div class="kv">${ap}</div><div class="ks">Commandes en cours</div><div class="ki">📦</div></div>
+    <div class="kpi te"><div class="kl">Installations</div><div class="kv">${ip}</div><div class="ks">A venir</div><div class="ki">🔧</div></div>`;
+
+  const ul=demandes.filter(d=>d.urgence==='Urgent'&&d.statut!=='Resolu');
+  $('d-urg').innerHTML=ul.length?ul.map(d=>`<div class="ditem"><div><span style="font-family:var(--mono);font-size:10px;color:var(--blue)">${d.id}</span><span style="font-weight:700;color:#fff;margin-left:7px">${esc(d.client)}</span></div>${sbadge(d.statut)}</div>`).join(''):'<div style="text-align:center;padding:20px;color:var(--dim);font-size:11px">Aucune urgence ✅</div>';
+  const sl=stock.filter(s=>s.qte<=s.seuil);
+  $('d-stk').innerHTML=sl.length?sl.map(s=>`<div class="ditem"><div><span style="font-weight:600;color:${s.qte===0?'var(--red)':'var(--yellow)'}">${esc(s.designation)}</span></div><span class="b ${s.qte===0?'b-re':'b-ye'}">${s.qte===0?'Rupture':'Bas: '+s.qte}</span></div>`).join(''):'<div style="text-align:center;padding:20px;color:var(--dim);font-size:11px">Stock OK ✅</div>';
+  const al=appro.filter(a=>a.statut==='Demande'||a.statut==='Commande');
+  $('d-app').innerHTML=al.length?al.map(a=>`<div class="ditem"><div><span style="font-weight:600;color:#fff">${esc(a.designation)}</span></div>${sbadge(a.statut)}</div>`).join(''):'<div style="text-align:center;padding:20px;color:var(--dim);font-size:11px">Aucune commande</div>';
+  const il=installations.filter(i=>i.statut!=='Termine').slice(0,4);
+  $('d-ins').innerHTML=il.length?il.map(i=>`<div class="ditem"><div><span style="font-family:var(--mono);font-size:10px;color:var(--teal)">${i.id}</span><span style="font-weight:700;color:#fff;margin-left:7px">${esc(i.client)}</span><br><span style="font-size:10px;color:var(--dim)">📅 ${i.dateDebut}</span></div>${sbadge(i.statut)}</div>`).join(''):'<div style="text-align:center;padding:20px;color:var(--dim);font-size:11px">Aucune installation</div>';
+  const el=evenements.filter(e=>e.statut!=='Termine').slice(0,3);
+  $('d-evt').innerHTML=el.length?el.map(e=>`<div class="ditem"><div><span style="font-family:var(--mono);font-size:10px;color:var(--purple)">${e.id}</span><span style="font-weight:700;color:#fff;margin-left:7px">${esc(e.nom)}</span></div>${sbadge(e.statut)}</div>`).join(''):'<div style="text-align:center;padding:20px;color:var(--dim);font-size:11px">Aucun evenement</div>';
+}
+
+function renderSav(){
+  const q=($('s-q')||{value:''}).value.toLowerCase();
+  const fu=($('s-urg')||{value:''}).value,fs=($('s-sta')||{value:''}).value,fc=($('s-src')||{value:''}).value;
+  const data=demandes.filter(d=>{
+    const mq=!q||[d.client,d.resume,d.equip||'',d.loc||'',d.notes||''].join(' ').toLowerCase().includes(q);
+    return mq&&(!fu||d.urgence===fu)&&(!fs||d.statut===fs)&&(!fc||d.src===fc);
+  });
+  $('t-sav').innerHTML=data.map(d=>`<tr>
+    <td><span style="font-family:var(--mono);font-size:10px;color:var(--blue);font-weight:600">${d.id}</span></td>
+    <td><span style="font-family:var(--mono);font-size:10px;color:var(--dim)">${d.dt}</span></td>
+    <td><div style="font-weight:700;color:#fff">${esc(d.client)||'—'}</div></td>
+    <td>${d.equip?`<span class="b b-dim">🔧 ${esc(d.equip)}</span>`:'—'}</td>
+    <td><span class="b b-cy">${esc(d.type||'—')}</span></td>
+    <td>${ubadge(d.urgence)}</td>
+    <td>${srcbadge(d.src)}</td>
+    <td><select class="ss" onchange="chgSav('${d.id}',this)">${['Nouveau','En traitement','Resolu','Annule'].map(s=>`<option ${d.statut===s?'selected':''}>${s}</option>`).join('')}</select></td>
+    <td></td>
+  </tr>`).join('');
+}
+function chgSav(id,sel){const d=demandes.find(x=>x.id===id);if(d){d.statut=sel.value;saveData();toast(`${id} → ${sel.value}`)}}
+
+function renderStock(){
+  const q=($('stk-q')||{value:''}).value.toLowerCase();
+  const data=stock.filter(s=>!q||[s.designation,s.ref,s.equip,s.fournisseur].join(' ').toLowerCase().includes(q));
+  const alerts=stock.filter(s=>s.qte<=s.seuil);
+  $('stk-alerts').innerHTML=alerts.length?`<div class="alert-bar">⚠️ ${alerts.length} piece(s) en alerte</div>`:'';
+  $('t-stk').innerHTML=data.map(s=>{
+    const cls=s.qte===0?'stk-zero':s.qte<=s.seuil?'stk-low':'stk-ok';
+    return `<tr><td><span style="font-family:var(--mono);font-size:10px;color:var(--dim)">${esc(s.ref)}</span></td>
+    <td style="font-weight:600;color:#fff">${esc(s.designation)}</td>
+    <td><span class="b b-dim">${esc(s.equip)}</span></td>
+    <td><span class="kv ${cls}" style="font-size:18px;font-family:var(--mono)">${s.qte}</span></td>
+    <td><span style="font-family:var(--mono);color:var(--dim)">${s.seuil}</span></td>
+    <td><span style="font-family:var(--mono)">${fmtDA(s.prix)}</span></td>
+    <td>${esc(s.fournisseur)}</td>
+    <td>${s.qte===0?'<span class="b b-re">Rupture</span>':s.qte<=s.seuil?'<span class="b b-ye">Alerte</span>':'<span class="b b-gr">OK</span>'}</td>
+    <td><button class="btn btn-o btn-sm" onclick="editQte(${stock.indexOf(s)})">✏️</button></td></tr>`
+  }).join('');
+}
+function editQte(idx){
+  const s=stock[idx];
+  const nq=prompt(`Stock actuel: ${s.qte}\nNouvelle quantite:`,s.qte);
+  if(nq!==null&&!isNaN(parseInt(nq))){stock[idx].qte=parseInt(nq);saveData();renderStock();toast(`Stock mis a jour`);}
+}
+
+function renderAppro(){
+  const q=($('app-q')||{value:''}).value.toLowerCase();
+  const fs=($('app-sta')||{value:''}).value;
+  const data=appro.filter(a=>(!q||[a.designation,a.fournisseur||''].join(' ').toLowerCase().includes(q))&&(!fs||a.statut===fs));
+  $('t-app').innerHTML=data.map(a=>`<tr>
+    <td><span style="font-family:var(--mono);font-size:10px;color:var(--yellow);font-weight:600">${a.id}</span></td>
+    <td><span style="font-family:var(--mono);font-size:10px;color:var(--dim)">${a.dt}</span></td>
+    <td style="font-weight:600;color:#fff">${esc(a.designation)}</td>
+    <td>${esc(a.ref||'—')}</td>
+    <td>${a.lieSav?`<span class="b b-bl">${esc(a.lieSav)}</span>`:'—'}</td>
+    <td><span style="font-family:var(--mono);font-weight:700">${a.qte}</span></td>
+    <td>${esc(a.fournisseur||'—')}</td>
+    <td><span style="font-family:var(--mono);color:var(--cyan)">${fmtDA((a.prixUnit||0)*a.qte)}</span></td>
+    <td>${a.dateLivraisonPrevue||'—'}</td>
+    <td><select class="ss" onchange="chgAppro(${appro.indexOf(a)},this)">${['Demande','Commande','Livre','Annule'].map(s=>`<option ${a.statut===s?'selected':''}>${s}</option>`).join('')}</select></td>
+  </tr>`).join('');
+}
+function chgAppro(idx,sel){appro[idx].statut=sel.value;saveData();toast(`APP → ${sel.value}`,'var(--yellow)');}
+
+let calM=new Date().getMonth(),calY=new Date().getFullYear();
+function calNav(d){calM+=d;if(calM>11){calM=0;calY++}if(calM<0){calM=11;calY--}renderAgenda()}
+function renderAgenda(){
+  const months=['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre','Octobre','Novembre','Decembre'];
+  $('cal-label').textContent=`${months[calM]} ${calY}`;
+  const days=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  $('cal-days').innerHTML=days.map(d=>`<div class="wday">${d}</div>`).join('');
+  const first=new Date(calY,calM,1).getDay(),total=new Date(calY,calM+1,0).getDate();
+  const off=first===0?6:first-1,today=new Date();
+  let cells='';
+  for(let i=0;i<off;i++)cells+=`<div class="wcell" style="background:transparent;border-color:transparent"></div>`;
+  for(let d=1;d<=total;d++){
+    const ds=`${String(d).padStart(2,'0')}/${String(calM+1).padStart(2,'0')}/${calY}`;
+    const isTd=d===today.getDate()&&calM===today.getMonth()&&calY===today.getFullYear();
+    const insEvs=installations.filter(i=>i.dateDebut===ds);
+    const evtEvs=evenements.filter(e=>e.dateDebut===ds);
+    cells+=`<div class="wcell ${isTd?'today':''} ${(insEvs.length||evtEvs.length)?'has-ev':''}">
+      <div class="wdn">${d}</div>
+      ${insEvs.map(i=>`<div class="wev ins">🔧 ${i.client.split(' ').pop()}</div>`).join('')}
+      ${evtEvs.map(e=>`<div class="wev evt">🎪 ${e.nom.split(' ')[0]}</div>`).join('')}
+    </div>`;
+  }
+  $('cal-grid').innerHTML=cells;
+}
+
+function renderIns(){
+  const data=installations;
+  $('ins-list').innerHTML=data.map(ins=>`
+    <div class="ins-card">
+      <div style="display:flex;justify-content:space-between">
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--teal)">${ins.id}</div>
+          <div style="font-size:14px;font-weight:700;color:#fff">${esc(ins.client)}</div>
+          <div style="font-size:11px;color:var(--dim)">📍 ${esc(ins.wilaya)}</div>
+        </div>
+        ${sbadge(ins.statut)}
+      </div>
+      <div style="margin-top:10px;font-size:11px">📅 ${ins.dateDebut} · 🔧 ${(ins.equipements||[]).join(', ')}</div>
+    </div>`).join('');
+}
+
+function renderEvt(){
+  $('evt-list').innerHTML=evenements.map(evt=>`
+    <div class="evt-card">
+      <div style="display:flex;justify-content:space-between">
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--purple)">${evt.id}</div>
+          <div style="font-size:14px;font-weight:700;color:#fff">${esc(evt.nom)}</div>
+        </div>
+        ${sbadge(evt.statut)}
+      </div>
+      <div style="margin-top:10px;font-size:11px">📅 ${evt.dateDebut} → ${evt.dateFin}</div>
+    </div>`).join('');
+}
+
+function renderAtelier(){
+  $('t-atel').innerHTML=(atelier||[]).map(a=>`<tr>
+    <td><span style="font-family:var(--mono);font-size:10px;color:var(--orange);font-weight:600">${a.id}</span></td>
+    <td>${a.dateEntree||'—'}</td>
+    <td>${esc(a.client||'—')}</td>
+    <td>${esc(a.equip||'—')}</td>
+    <td>${esc(a.raison||'—')}</td>
+    <td>${esc(a.tech||'—')}</td>
+    <td><select class="ss" onchange="chgAtelStat(${atelier.indexOf(a)},this)">${['En reparation','En attente piece','Pret a rendre','Rendu'].map(s=>`<option ${a.statut===s?'selected':''}>${s}</option>`).join('')}</select></td>
+  </tr>`).join('')||'<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--dim)">Aucun appareil</td></tr>';
+}
+function chgAtelStat(idx,sel){atelier[idx].statut=sel.value;saveData();}
+
+function renderUrgent(){$('t-urg2').innerHTML=demandes.filter(d=>d.urgence==='Urgent'&&d.statut!=='Resolu').map(d=>`<tr><td>${d.id}</td><td>${d.dt}</td><td>${esc(d.client)}</td><td>${esc(d.equip||'—')}</td><td>${sbadge(d.statut)}</td><td><select class="ss" onchange="chgSav('${d.id}',this)">${['Nouveau','En traitement','Resolu','Annule'].map(s=>`<option ${d.statut===s?'selected':''}>${s}</option>`).join('')}</select></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center">Aucune urgence</td></tr>'}
+function renderEnCours(){$('t-enc').innerHTML=demandes.filter(d=>d.statut==='En traitement').map(d=>`<tr><td>${d.id}</td><td>${d.dt}</td><td>${esc(d.client)}</td><td>${esc(d.equip||'—')}</td><td>${esc(d.tech||'—')}</td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center">Aucun</td></tr>'}
+function renderResolu(){$('t-res').innerHTML=demandes.filter(d=>d.statut==='Resolu').map(d=>`<tr><td>${d.id}</td><td>${d.dt}</td><td>${esc(d.client)}</td><td>${esc(d.equip||'—')}</td><td>${esc(d.tech||'—')}</td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center">Aucun</td></tr>'}
+
+function openAdd(type){
+  ['a-tec','e-resp'].forEach(id=>{const el=$(id);if(el){el.innerHTML=(id==='e-resp'?'<option value="">Choisir</option>':'<option value="">Non assigne</option>')+techniciens.map(t=>`<option>${t}</option>`).join('')}});
+  const savSel=$('i-sav');if(savSel)savSel.innerHTML='<option value="">Aucun</option>'+demandes.filter(d=>d.statut!=='Resolu').map(d=>`<option>${d.id} — ${d.client}</option>`).join('');
+  const apSav=$('ap-sav');if(apSav)apSav.innerHTML='<option value="">Aucun</option>'+demandes.map(d=>`<option value="${d.id}">${d.id} — ${d.client}</option>`).join('');
+  const apPie=$('ap-pie');if(apPie)apPie.innerHTML='<option value="">Choisir piece...</option>'+stock.map(s=>`<option value="${s.id}">${s.designation} (${s.ref}) — Stock: ${s.qte}</option>`).join('');
+  const map={sav:'ov-sav',piece:'ov-piece',appro:'ov-appro',ins:'ov-ins',evt:'ov-evt'};
+  if(map[type])$(map[type]).classList.add('on');
+}
+
+function nextId(arr,prefix){if(!arr||!arr.length)return`${prefix}-001`;const nums=arr.map(x=>{const m=(x.id||'').match(/\d+/);return m?parseInt(m[0]):0;});return`${prefix}-${String(Math.max(...nums)+1).padStart(3,'0')}`;}
+
+function saveSav(){
+  const d={id:nextId(demandes,'SAV'),dt:now(),src:$('a-src').value,client:$('a-cli').value.trim(),loc:$('a-loc').value.trim(),equip:$('a-eq').value.trim(),type:$('a-typ').value,resume:$('a-res').value.trim(),urgence:$('a-urg').value,statut:'Nouveau',tech:$('a-tec').value,notes:$('a-not').value.trim()};
+  demandes.unshift(d);cm('ov-sav');['a-cli','a-loc','a-eq','a-res','a-not'].forEach(id=>{$(id).value=''});saveData();updateBadges();renderDash();toast(`✅ ${d.id} enregistre`);
+}
+function savePiece(){
+  const p={id:nextId(stock,'PIC'),ref:$('p-ref').value.trim(),designation:$('p-des').value.trim(),equip:$('p-eq').value.trim(),qte:parseInt($('p-qte').value)||0,seuil:parseInt($('p-seu').value)||1,prix:parseInt($('p-pri').value)||0,fournisseur:$('p-fou').value.trim(),notes:$('p-not').value.trim()};
+  stock.push(p);cm('ov-piece');['p-ref','p-des','p-eq','p-fou','p-not'].forEach(id=>{$(id).value=''});$('p-qte').value='0';$('p-seu').value='1';$('p-pri').value='0';
+  saveData();updateBadges();toast(`✅ ${p.designation} ajoute`,'var(--orange)');
+}
+function saveAppro(){
+  const piece=stock.find(s=>s.id===$('ap-pie').value);
+  const a={id:nextId(appro,'APP'),dt:todayFR(),lieSav:$('ap-sav').value,liePiece:$('ap-pie').value,designation:piece?piece.designation:'',ref:piece?piece.ref:'',qte:parseInt($('ap-qte').value)||1,fournisseur:$('ap-fou').value.trim(),statut:$('ap-sta').value,dateCommande:'',dateLivraisonPrevue:'',prixUnit:parseInt($('ap-pri').value)||0,notes:''};
+  appro.unshift(a);cm('ov-appro');$('ap-qte').value='1';$('ap-pri').value='0';
+  saveData();updateBadges();toast(`✅ ${a.id} enregistre`,'var(--yellow)');
+}
+function saveIns(){
+  const ins={id:nextId(installations,'INS'),dateDebut:$('i-dt1').value.split('-').reverse().join('/'),dateFin:$('i-dt2').value?$('i-dt2').value.split('-').reverse().join('/'):$('i-dt1').value.split('-').reverse().join('/'),client:$('i-cli').value.trim(),wilaya:$('i-wil').value.trim(),adresse:'',equipements:$('i-eq').value.split(',').map(e=>e.trim()).filter(Boolean),techniciens:[],lieSav:'',statut:'Planifie',type:$('i-typ').value,notes:'',materiel:[]};
+  installations.unshift(ins);cm('ov-ins');['i-cli','i-wil','i-eq'].forEach(id=>{$(id).value=''});
+  saveData();updateBadges();toast(`✅ ${ins.id} planifie`,'var(--teal)');
+}
+function saveEvt(){
+  const evt={id:nextId(evenements,'EVT'),nom:$('e-nom').value.trim(),type:$('e-typ').value,dateDebut:$('e-dt1').value.split('-').reverse().join('/'),dateFin:$('e-dt2').value?$('e-dt2').value.split('-').reverse().join('/'):$('e-dt1').value.split('-').reverse().join('/'),lieu:'',wilaya:'',responsable:$('e-resp').value,statut:'En preparation',budget:0,notes:'',materiel:[]};
+  evenements.unshift(evt);cm('ov-evt');['e-nom'].forEach(id=>{$(id).value=''});
+  saveData();updateBadges();toast(`✅ ${evt.id} cree`,'var(--purple)');
+}
+function exportCSV(){
+  const h='ID,Date,Source,Client,Localisation,Equipement,Type,Resume,Urgence,Statut';
+  const rows=demandes.map(d=>[d.id,d.dt,d.src,d.client,d.loc||'',d.equip||'',d.type||'',`"${d.resume||''}"`,d.urgence,d.statut].join(','));
+  const blob=new Blob(['\uFEFF'+[h,...rows].join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`SAV_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+
+recalcCounters();
+updateBadges();
+renderDash();
+setTimeout(()=>{
+  ['s-q','s-urg','s-sta','s-src'].forEach(id=>{const el=$(id);if(el){el.addEventListener('input',renderSav);el.addEventListener('change',renderSav)}});
+  ['stk-q'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',renderStock)});
+  ['app-q','app-sta'].forEach(id=>{const el=$(id);if(el){el.addEventListener('input',renderAppro);el.addEventListener('change',renderAppro)}});
+},500);
+
+function recalcCounters(){
+  savCtr = demandes.length>0 ? Math.max(...demandes.map(d=>parseInt(d.id.replace('SAV-',''))||0))+1 : 1;
+  insCtr = installations.length>0 ? Math.max(...installations.map(i=>parseInt(i.id.replace('INS-',''))||0))+1 : 1;
+  evtCtr = evenements.length>0 ? Math.max(...evenements.map(e=>parseInt(e.id.replace('EVT-',''))||0))+1 : 1;
+  stkCtr = stock.length>0 ? Math.max(...stock.map(s=>parseInt(s.id.replace('PIC-','').replace(/\D/g,''))||0))+1 : 1;
+  appCtr = appro.length>0 ? Math.max(...appro.map(a=>parseInt(a.id.replace('APP-',''))||0))+1 : 1;
+  atelCtr= atelier.length>0 ? Math.max(...atelier.map(a=>parseInt(a.id.replace('ATL-',''))||0))+1 : 1;
+}
+</script>
+</body>
+</html>
